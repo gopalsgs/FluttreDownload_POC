@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 //import 'package:simple_permissions/simple_permissions.dart';
 
 
@@ -29,8 +30,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-bool isDownloading = false;
-var d_progress = 0.0;
+
 
 class MyHomePage extends StatefulWidget {
   MyHomePage({Key key, this.title}) : super(key: key);
@@ -50,18 +50,20 @@ class _MyHomePageState extends State<MyHomePage> {
   String taskId;
   List<DownloadTask> tasks;
 
+  bool isDownloading = false;
+  var download_progress = 0.0;
 
   @override
   void initState() {
     super.initState();
 
     bool registered = addMapping();
+    print('Register: $registered');
 
     if(!registered){
       removeMapping();
       print(addMapping());
     }
-    print('Register: $registered');
 
     _port.listen((dynamic data) {
       String id = data[0];
@@ -74,13 +76,12 @@ class _MyHomePageState extends State<MyHomePage> {
       setState((){
         if(progress < 100){
           isDownloading = true;
-          d_progress = progress.ceilToDouble();
+          download_progress = progress.ceilToDouble();
         }
         else{
           isDownloading = false;
-
           Timer(Duration(milliseconds: 1500), (){
-          open();
+            openFile();
           });
         }
       });
@@ -95,12 +96,15 @@ class _MyHomePageState extends State<MyHomePage> {
     return registered;
   }
 
+  void removeMapping() {
+    IsolateNameServer.removePortNameMapping('downloader_send_port');
+  }
+
   static void downloadCallback(String id, DownloadTaskStatus status, int progress) {
     final SendPort send = IsolateNameServer.lookupPortByName('downloader_send_port');
     print('Background Isolate Callback: task ($id) is in status ($status) and process ($progress)');
     send.send([id, status, progress]);
   }
-
 
   @override
   void dispose() {
@@ -108,36 +112,19 @@ class _MyHomePageState extends State<MyHomePage> {
     super.dispose();
   }
 
-  void removeMapping() {
-    IsolateNameServer.removePortNameMapping('downloader_send_port');
-  }
-
-//  Future<bool> checkPermission() async {
-//    PermissionStatus permissionResult = await SimplePermissions.requestPermission(Permission. WriteExternalStorage);
-//    if (permissionResult == PermissionStatus.authorized){
-//      return Future.value(true);
-//    }
-//    return Future.value(false);
-//  }
-
-  void open(){
+  void openFile(){
     FlutterDownloader.open(taskId: taskId);
   }
-
-
 
   @override
   Widget build(BuildContext context) {
 
     return Scaffold(
       appBar: AppBar(
-
         title: Text(widget.title),
       ),
       body: Center(
-
         child: Column(
-
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             Container(
@@ -173,8 +160,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future startDownload(BuildContext context, isDjangoDoc) async {
 
-//    PermissionStatus permissionResult = await SimplePermissions.requestPermission(Permission. WriteExternalStorage);
-//    if (permissionResult == PermissionStatus.authorized){
+    if (await Permission.storage.request().isGranted) {
       var dir = await getExternalStorageDirectory();
 
       print('_MyHomePageState.build: ${dir.path}');
@@ -187,10 +173,9 @@ class _MyHomePageState extends State<MyHomePage> {
       isDownloading = true;
       _displayDialog(context);
       tasks = await FlutterDownloader.loadTasks();
-//    }
+    }
 
   }
-
 
   _displayDialog(BuildContext context) async {
     return showDialog(
@@ -203,9 +188,12 @@ class _MyHomePageState extends State<MyHomePage> {
                   color: Colors.black,
                 ),
               ),
-              content: Text('Downloading.....')
-//              Text(isDownloading ? 'Downloading $d_progress %': 'Opening file...'),
+              content: //Text(isDownloading ? 'Downloading $d_progress %': 'Opening file...'),
+              Text('Downloading...'),
             );
           });
   }
+
 }
+
+

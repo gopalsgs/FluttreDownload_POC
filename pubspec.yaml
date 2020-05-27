@@ -25,7 +25,7 @@ dependencies:
     sdk: flutter
   flutter_downloader: ^1.4.4
   path_provider: ^1.6.9
-#  simple_permissions: ^0.1.9
+  permission_handler: ^5.0.0+hotfix.6
 
 
 
